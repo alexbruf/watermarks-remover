@@ -1,0 +1,330 @@
+<title>Watermarks Remover</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a two-bench instrument. Text bench and file bench side by side, stacking on phones;
+   each bench reads top to bottom: input, what was found, what comes out. */
+:root {
+  --bg: #eef1f4;
+  --panel: #ffffff;
+  --ink: #17202b;
+  --muted: #5b6878;
+  --line: #d5dce4;
+  --accent: #1d5fa8;
+  --accent-ink: #ffffff;
+  --mark: #a3480e;
+  --mark-bg: #fbe9dc;
+  --ok: #1f7a4d;
+  --ok-bg: #e2f3ea;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161d; --panel: #18202a; --ink: #e4e9ef; --muted: #93a1b2; --line: #2a3542;
+    --accent: #6ea8ec; --accent-ink: #0d1520; --mark: #f0a46c; --mark-bg: #3a2516;
+    --ok: #6fd3a0; --ok-bg: #15302a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161d; --panel: #18202a; --ink: #e4e9ef; --muted: #93a1b2; --line: #2a3542;
+  --accent: #6ea8ec; --accent-ink: #0d1520; --mark: #f0a46c; --mark-bg: #3a2516;
+  --ok: #6fd3a0; --ok-bg: #15302a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 48px; display: grid; gap: 24px; }
+header { display: grid; gap: 6px; }
+h1 { font: 700 clamp(1.7rem, 3.4vw, 2.4rem)/1.1 var(--display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 65ch; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font: 500 12px var(--mono); color: var(--ok); background: var(--ok-bg); border-radius: 999px; padding: 3px 10px; width: fit-content; }
+.badge[data-state="loading"] { color: var(--muted); background: var(--line); }
+.benches { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 20px; align-items: start; }
+.bench { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+h2 { font: 600 1.15rem/1.2 var(--display); margin: 0; }
+.label { font: 600 11px var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+textarea { width: 100%; min-height: 130px; resize: vertical; font: 14px/1.5 var(--mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+textarea:focus-visible, button:focus-visible, .drop:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.reveal { font: 14px/1.9 var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
+.cp { display: inline-block; font: 500 10px/1.5 var(--mono); color: var(--mark); background: var(--mark-bg); border-radius: 3px; padding: 0 4px; margin: 0 1px; vertical-align: 1px; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; }
+.opts label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 11px var(--body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+td.num { font-variant-numeric: tabular-nums; text-align: right; }
+td code, .mono { font-family: var(--mono); font-size: 12px; }
+.summary { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+.pill { font: 500 12px var(--mono); border-radius: 999px; padding: 2px 9px; }
+.pill.found { color: var(--mark); background: var(--mark-bg); }
+.pill.clean { color: var(--ok); background: var(--ok-bg); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: 600 13px var(--body); border-radius: 6px; padding: 7px 14px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
+button.ghost { background: transparent; color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: default; }
+.drop { border: 1.5px dashed var(--line); border-radius: 8px; padding: 26px 16px; text-align: center; color: var(--muted); cursor: pointer; display: grid; gap: 4px; }
+.drop strong { color: var(--ink); font-weight: 600; }
+.drop.over { border-color: var(--accent); background: var(--bg); }
+.formats { font: 12px/1.6 var(--mono); color: var(--muted); }
+.files { display: grid; gap: 12px; }
+.file { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 8px; min-width: 0; }
+.file-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; }
+.file-name { font-weight: 600; overflow-wrap: anywhere; }
+.file ul { margin: 0; padding-left: 18px; font-size: 13px; }
+.file li { overflow-wrap: anywhere; }
+.err { color: var(--mark); font-size: 13px; }
+.note { font-size: 12px; color: var(--muted); margin: 0; }
+footer { color: var(--muted); font-size: 12px; max-width: 75ch; }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="badge" id="status" data-state="loading">loading engine…</span>
+    <h1>Watermarks Remover</h1>
+    <p class="lede">Strips invisible Unicode from text and C2PA, XMP and AI-generator metadata from images, audio and video. Everything runs in this tab as WebAssembly; nothing is uploaded.</p>
+  </header>
+
+  <div class="benches">
+    <section class="bench" aria-labelledby="t-h">
+      <h2 id="t-h">Text</h2>
+      <label class="label" for="t-in">Paste text</label>
+      <textarea id="t-in" spellcheck="false"></textarea>
+      <div class="opts" role="group" aria-label="Cleaning options">
+        <label><input type="checkbox" id="o-spaces" checked> Normalize exotic spaces</label>
+        <label><input type="checkbox" id="o-homo"> Fold homoglyphs</label>
+        <label><input type="checkbox" id="o-nfkc"> NFKC</label>
+        <label><input type="checkbox" id="o-bidi"> Strip bidi marks</label>
+        <label><input type="checkbox" id="o-glue"> Paranoid (emoji glue too)</label>
+      </div>
+      <div class="summary" id="t-summary"></div>
+      <div>
+        <div class="label">Hidden characters, revealed</div>
+        <div class="reveal" id="t-reveal" aria-live="polite"></div>
+      </div>
+      <div class="tbl-wrap"><table id="t-table" hidden>
+        <thead><tr><th>Code point</th><th>Name</th><th>Kind</th><th class="num">Count</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div>
+        <div class="label">Cleaned</div>
+        <textarea id="t-out" readonly spellcheck="false"></textarea>
+      </div>
+      <div class="row"><button id="t-copy">Copy cleaned text</button><span class="note" id="t-copied"></span></div>
+    </section>
+
+    <section class="bench" aria-labelledby="f-h">
+      <h2 id="f-h">Files</h2>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose files to clean">
+        <strong>Drop files here or click to choose</strong>
+        <span>Each file is inspected, cleaned and offered back.</span>
+        <span class="formats">png jpg webp avif heic gif tiff bmp · mp4 mov m4a wav mp3 flac · txt md</span>
+      </div>
+      <input type="file" id="pick" multiple hidden>
+      <div class="opts"><label><input type="checkbox" id="o-keep"> Keep non-AI metadata (camera EXIF etc.)</label></div>
+      <p class="note" id="f-sample-note">The entry below is a built-in sample: an AVIF carrying a C2PA manifest and XMP.</p>
+      <div class="files" id="files"></div>
+    </section>
+  </div>
+
+  <footer>Port of the deterministic layers of watermarks-remover to Rust. Not included here: statistical text watermarks (those need a rewrite), PDF, and pixel-level image watermarks such as SynthID.</footer>
+</div>
+
+<script type="module">
+/*__WM_GLUE__*/
+
+const $ = (id) => document.getElementById(id);
+const SAMPLE_TEXT = "Quarterly\u00A0results\u200B exceeded the forecast\u2009by 4%.\u200D\nThe board\u2060 approved the plan\u202F on Tuesday.\uFEFF\u{E0041}\u{E0049}";
+const SAMPLE_AVIF_B64 = "__WM_SAMPLE_B64__";
+
+const b64ToBytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+initSync({ module: b64ToBytes("__WM_WASM_B64__") });
+$("status").textContent = "engine ready · runs locally";
+$("status").dataset.state = "ready";
+
+/* ---------- text ---------- */
+const INVISIBLE = /[\u00A0\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u2000-\u200F\u2028-\u202F\u205F-\u206F\u3000\u3164\uFE00-\uFE0F\uFEFF\uFFA0\uFFF9-\uFFFB]|[\u{E0000}-\u{E007F}]|[\u{1D173}-\u{1D17A}]/u;
+function textOpts() {
+  return { normalizeSpaces: $("o-spaces").checked, aggressiveHomoglyphs: $("o-homo").checked, nfkc: $("o-nfkc").checked, stripBidi: $("o-bidi").checked, stripEmojiGlue: $("o-glue").checked };
+}
+function renderText() {
+  const text = $("t-in").value;
+  const o = textOpts();
+  const report = inspectText(text, { aggressive: o.aggressiveHomoglyphs, stripEmojiGlue: o.stripEmojiGlue });
+  const out = cleanText(text, o);
+  const flagged = new Set(report.hits.map((h) => parseInt(h.codepoint.slice(2), 16)));
+
+  const reveal = $("t-reveal");
+  reveal.replaceChildren();
+  let buf = "";
+  for (const ch of text) {
+    const cp = ch.codePointAt(0);
+    if (flagged.has(cp) || INVISIBLE.test(ch)) {
+      if (buf) { reveal.append(buf); buf = ""; }
+      const s = document.createElement("span");
+      s.className = "cp";
+      s.textContent = "U+" + cp.toString(16).toUpperCase().padStart(4, "0");
+      reveal.append(s);
+      if (ch === "\n") reveal.append("\n");
+    } else buf += ch;
+  }
+  if (buf) reveal.append(buf);
+  if (!text) reveal.textContent = "Nothing to show yet.";
+
+  const tbody = $("t-table").querySelector("tbody");
+  tbody.replaceChildren();
+  for (const h of report.hits) {
+    const tr = document.createElement("tr");
+    const name = h.label.replace(/^U\+[0-9A-F]+\s*/, "");
+    for (const [v, cls] of [[h.codepoint, "mono"], [name, ""], [h.kind, ""], [String(h.count), "num"]]) {
+      const td = document.createElement("td");
+      td.textContent = v;
+      if (cls === "num") td.className = "num";
+      if (cls === "mono") td.innerHTML = "<code></code>", td.firstChild.textContent = v;
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+  $("t-table").hidden = report.hits.length === 0;
+
+  const s = out.stats;
+  const sum = $("t-summary");
+  sum.replaceChildren();
+  const pill = document.createElement("span");
+  const changes = s.removed_count + s.replaced_count;
+  pill.className = "pill " + (changes ? "found" : "clean");
+  pill.textContent = changes ? `${s.removed_count} removed · ${s.replaced_count} replaced` : "no hidden characters";
+  sum.append(pill, `${s.input_length} → ${s.output_length} characters`);
+  $("t-out").value = out.text;
+}
+for (const id of ["t-in", "o-spaces", "o-homo", "o-nfkc", "o-bidi", "o-glue"]) $(id).addEventListener("input", renderText);
+$("t-copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText($("t-out").value); $("t-copied").textContent = "Copied."; }
+  catch { $("t-out").select(); $("t-copied").textContent = "Selected. Press Ctrl+C or ⌘C to copy."; }
+});
+$("t-in").value = SAMPLE_TEXT;
+renderText();
+
+/* ---------- files ---------- */
+const SAVE_OK = new Set("gif png jpg jpeg webp mp4 webm txt json md docx pptx epub csv ttf html svg pdf xlsx zip".split(" "));
+let downloads = null;
+if (window.claude?.use) window.claude.use("downloads").then((d) => { downloads = d; }).catch(() => {});
+
+// Minimal stored (uncompressed) zip, used to hand back formats the viewer's save allowlist refuses.
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function zipOne(name, data) {
+  const nm = new TextEncoder().encode(name), crc = crc32(data), n = data.length;
+  const lh = new DataView(new ArrayBuffer(30));
+  lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(8, 0, true);
+  lh.setUint16(12, 0x21, true); lh.setUint32(14, crc, true); lh.setUint32(18, n, true); lh.setUint32(22, n, true); lh.setUint16(26, nm.length, true);
+  const ch = new DataView(new ArrayBuffer(46));
+  ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(14, 0x21, true);
+  ch.setUint32(16, crc, true); ch.setUint32(20, n, true); ch.setUint32(24, n, true); ch.setUint16(28, nm.length, true);
+  const cdOff = 30 + nm.length + n, cdLen = 46 + nm.length;
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, 1, true); end.setUint16(10, 1, true); end.setUint32(12, cdLen, true); end.setUint32(16, cdOff, true);
+  return new Blob([lh, nm, data, ch, nm, end]);
+}
+function cleanedName(name) { const i = name.lastIndexOf("."); return i > 0 ? name.slice(0, i) + ".cleaned" + name.slice(i) : name + ".cleaned"; }
+async function offer(name, data, noteEl) {
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  if (downloads) {
+    const zipped = !SAVE_OK.has(ext);
+    try {
+      await downloads.save(zipped ? { filename: name + ".zip", data: zipOne(name, data) } : { filename: name, data: data.slice() });
+      noteEl.textContent = zipped ? "Saved inside a .zip (this viewer cannot save ." + ext + " directly)." : "Saved.";
+    } catch (e) {
+      noteEl.textContent = e?.code === "declined" ? "Save cancelled." : "This viewer could not save the file (" + (e?.code || "unavailable") + ").";
+    }
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([data]));
+  const a = document.createElement("a");
+  a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+const TEXT_EXT = new Set(["txt", "text", "md", "markdown", "csv", "json", "html", "htm", "js", "ts", "py", "yaml", "yml", "toml", "css", "xml", "tex"]);
+function processFile(name, bytes) {
+  const keep = $("o-keep").checked;
+  const opts = { stripAllMetadata: !keep };
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  const fmtImg = detectImageFormat(bytes);
+  if (fmtImg !== "unknown") return { kind: "image", inspect: inspectImage(bytes), clean: () => cleanImage(bytes, opts) };
+  const fmtAv = detectAvFormat(bytes);
+  if (fmtAv !== "unknown") return { kind: "audio/video", inspect: inspectAv(bytes), clean: () => cleanAv(bytes, opts) };
+  if (TEXT_EXT.has(ext)) {
+    const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    const rep = inspectText(text);
+    return {
+      kind: "text",
+      inspect: { format: ext, has_c2pa: false, has_ai_metadata: rep.suspicious_total > 0, findings: rep.hits.map((h) => `${h.label} ×${h.count}`) },
+      clean: () => { const o = cleanText(text, textOpts()); const data = new TextEncoder().encode(o.text); return { data, report: { format: ext, actions: [`removed ${o.stats.removed_count}, replaced ${o.stats.replaced_count} characters`], bytes_in: bytes.length, bytes_out: data.length, changed: o.text !== text } }; },
+    };
+  }
+  throw new Error("Unsupported format. Images, audio/video and plain text files are handled here; office documents and PDF are not yet.");
+}
+
+function fmtBytes(n) { return n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(2) + " MB"; }
+function list(items) { const ul = document.createElement("ul"); for (const t of items) { const li = document.createElement("li"); li.textContent = t; ul.append(li); } return ul; }
+
+function addFile(name, bytes, prepend = true) {
+  const card = document.createElement("article");
+  card.className = "file";
+  const head = document.createElement("div"); head.className = "file-head";
+  const nm = document.createElement("span"); nm.className = "file-name"; nm.textContent = name;
+  head.append(nm);
+  card.append(head);
+  try {
+    const r = processFile(name, bytes);
+    const res = r.clean();
+    const meta = document.createElement("span"); meta.className = "mono";
+    meta.textContent = `${r.inspect.format} · ${fmtBytes(bytes.length)}`;
+    head.append(meta);
+    const findings = r.inspect.findings || [];
+    const sum = document.createElement("div"); sum.className = "summary";
+    const pill = document.createElement("span");
+    const flagged = r.inspect.has_c2pa || r.inspect.has_ai_metadata || findings.length > 0;
+    pill.className = "pill " + (flagged ? "found" : "clean");
+    pill.textContent = r.inspect.has_c2pa ? "C2PA found" : flagged ? "AI metadata found" : "nothing found";
+    sum.append(pill);
+    if (res.report.changed) {
+      const p2 = document.createElement("span"); p2.className = "pill clean";
+      p2.textContent = (res.report.still_has_c2pa || res.report.still_has_ai_metadata) ? "partly cleaned" : "cleaned";
+      sum.append(p2);
+    }
+    card.append(sum);
+    if (findings.length) { const l = document.createElement("div"); l.className = "label"; l.textContent = "Found"; card.append(l, list(findings)); }
+    if (res.report.actions?.length) { const l = document.createElement("div"); l.className = "label"; l.textContent = "Removed"; card.append(l, list(res.report.actions)); }
+    const row = document.createElement("div"); row.className = "row";
+    const btn = document.createElement("button"); btn.textContent = "Save cleaned file";
+    const btnNote = document.createElement("span"); btnNote.className = "note";
+    btn.disabled = !res.report.changed;
+    if (!res.report.changed) btnNote.textContent = "No changes needed.";
+    btn.addEventListener("click", () => offer(cleanedName(name), res.data, btnNote));
+    row.append(btn, btnNote);
+    card.append(row);
+  } catch (e) {
+    const err = document.createElement("p"); err.className = "err"; err.textContent = e.message || String(e);
+    card.append(err);
+  }
+  prepend ? $("files").prepend(card) : $("files").append(card);
+}
+
+async function handleFiles(fileList) {
+  $("f-sample-note").hidden = true;
+  for (const f of fileList) addFile(f.name, new Uint8Array(await f.arrayBuffer()));
+}
+const drop = $("drop");
+drop.addEventListener("click", () => $("pick").click());
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("pick").click(); } });
+$("pick").addEventListener("change", (e) => { handleFiles(e.target.files); e.target.value = ""; });
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); handleFiles(e.dataTransfer.files); });
+
+addFile("sample_c2pa.avif", b64ToBytes(SAMPLE_AVIF_B64), false);
+</script>

@@ -1,0 +1,13 @@
+[package]
+name = "wm-av"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure-Rust port of the stdlib audio/video metadata inspector/stripper (MP4/MOV/M4A/M4V, WAV, MP3/ID3v2, FLAC)"
+
+[dependencies]
+serde.workspace = true
+wm-image.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

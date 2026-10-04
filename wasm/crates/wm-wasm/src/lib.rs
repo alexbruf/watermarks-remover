@@ -124,3 +124,23 @@ pub fn clean_image(data: &[u8], options: JsValue) -> Result<JsValue, JsError> {
     .map_err(|e| JsError::new(&e.to_string()))?;
     cleaned_file(&res.cleaned, &res.report)
 }
+
+/// Sniff the audio/video format ("mp4", "wav", "mp3", "flac", "unknown").
+#[wasm_bindgen(js_name = detectAvFormat)]
+pub fn detect_av_format(data: &[u8]) -> String {
+    wm_av::detect_av_format(data).to_string()
+}
+
+#[wasm_bindgen(js_name = inspectAv)]
+pub fn inspect_av(data: &[u8]) -> Result<JsValue, JsError> {
+    to_js(&wm_av::inspect_av(data))
+}
+
+/// Strip C2PA / AI metadata from MP4/MOV, WAV, MP3 or FLAC. Returns `{data: Uint8Array, report}`.
+#[wasm_bindgen(js_name = cleanAv)]
+pub fn clean_av(data: &[u8], options: JsValue) -> Result<JsValue, JsError> {
+    let o: FileCleanOpts = opts(options)?;
+    let res = wm_av::clean_av(data, &wm_av::AvCleanOptions { strip_all_metadata: o.strip_all_metadata })
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    cleaned_file(&res.cleaned, &res.report)
+}
