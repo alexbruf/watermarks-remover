@@ -1,0 +1,17 @@
+[package]
+name = "wm-container"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure-Rust port of the stdlib container metadata inspector/cleaner (SVG, DOCX/XLSX/PPTX, ODT, EPUB, HTML, Markdown, LaTeX, PDF byte-level)"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+wm-image.workspace = true
+wm-text.workspace = true
+regex = "1"
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
+
+[dev-dependencies]
+sha2 = "0.11.0"
