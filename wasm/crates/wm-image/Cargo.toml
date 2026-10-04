@@ -1,0 +1,12 @@
+[package]
+name = "wm-image"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure-Rust port of the stdlib image metadata inspector/stripper (PNG/JPEG/WebP/AVIF/HEIC/BMP/GIF/TIFF)"
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -22,6 +22,8 @@
 !/skills/clean-user-facing-text/**
 !/tests/
 !/tests/**
+!/wasm/
+!/wasm/**
 !/.coderabbit.yaml
 !/.dockerignore
 !/.env.example
